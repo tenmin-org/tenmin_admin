@@ -21,6 +21,7 @@ import type {
   StoreCategoryCreate,
   StoreCategoryUpdate,
   StoreCreate,
+  PaginatedAdminUsers,
   PaginatedStoreCategories,
   PaginatedStoreProducts,
   StoreProduct,
@@ -71,8 +72,10 @@ export async function deleteStore(id: number) {
 export async function listAdminUsers(params?: {
   only_admins?: boolean;
   search?: string;
+  limit?: number;
+  offset?: number;
 }) {
-  const { data } = await api.get<AdminUser[]>("/users/", { params });
+  const { data } = await api.get<PaginatedAdminUsers>("/users/", { params });
   return data;
 }
 export async function createAdminUser(body: AdminUserCreate) {

@@ -37,6 +37,13 @@ export interface AdminUser {
   store_ids: number[];
 }
 
+export interface PaginatedAdminUsers {
+  items: AdminUser[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface AdminUserCreate {
   telegram_id: number;
   phone: string;

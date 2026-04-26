@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Search, Trash2, Users } from "lucide-react";
-import { useState } from "react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2, Users } from "lucide-react";
+import { useDeferredValue, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -14,7 +14,7 @@ import {
   listStores,
   updateAdminUser,
 } from "@/api/endpoints";
-import type { AdminUser } from "@/api/types";
+import type { AdminUser, AdminUserUpdate } from "@/api/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -38,7 +38,13 @@ type CreateInput = z.input<typeof createSchema>;
 type CreateOutput = z.output<typeof createSchema>;
 
 const editSchema = z.object({
-  phone: z.string().trim().min(3, "Телефон обязателен"),
+  phone: z
+    .string()
+    .transform((s) => s.trim())
+    .refine(
+      (s) => s === "" || s.length >= 3,
+      "Минимум 3 символа или оставьте пустым"
+    ),
   first_name: z.string().optional().transform((v) => v || null),
   last_name: z.string().optional().transform((v) => v || null),
   username: z.string().optional().transform((v) => v || null),
@@ -57,18 +63,48 @@ const editSchema = z.object({
 type EditInput = z.input<typeof editSchema>;
 type EditOutput = z.output<typeof editSchema>;
 
+const PAGE_SIZE = 30;
+
 export default function AdminUsersPage() {
   const qc = useQueryClient();
   const me = useAuth((s) => s.profile)!;
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search.trim());
+  const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [confirm, setConfirm] = useState<AdminUser | null>(null);
 
+  useEffect(() => {
+    setPage(1);
+  }, [deferredSearch]);
+
   const query = useQuery({
-    queryKey: ["admin-users", search],
-    queryFn: () => listAdminUsers({ only_admins: true, search: search || undefined }),
+    queryKey: ["admin-users", deferredSearch, page, PAGE_SIZE],
+    queryFn: () =>
+      listAdminUsers({
+        only_admins: false,
+        search: deferredSearch || undefined,
+        limit: PAGE_SIZE,
+        offset: (page - 1) * PAGE_SIZE,
+      }),
   });
+
+  const total = query.data?.total ?? 0;
+  const items = query.data?.items ?? [];
+  const offset = query.data?.offset ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const fromRow = total === 0 ? 0 : offset + 1;
+  const toRow = offset + items.length;
+
+  useEffect(() => {
+    if (query.isLoading) return;
+    const t = query.data?.total;
+    if (t === undefined) return;
+    const tp = Math.max(1, Math.ceil(t / PAGE_SIZE));
+    setPage((p) => (p > tp ? tp : p));
+  }, [query.isLoading, query.data?.total]);
+
   const storesQ = useQuery({ queryKey: ["stores"], queryFn: listStores });
   const storeMap = new Map(storesQ.data?.map((s) => [s.id, s.name]));
 
@@ -76,7 +112,7 @@ export default function AdminUsersPage() {
     mutationFn: deleteAdminUser,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-users"] });
-      toast.success("Пользователь удалён");
+      toast.success("Учётная запись удалена");
       setConfirm(null);
     },
     onError: (e) => toast.error(extractError(e)),
@@ -85,8 +121,8 @@ export default function AdminUsersPage() {
   return (
     <div>
       <PageHeader
-        title="Администраторы"
-        description="Пользователи с доступом к админке"
+        title="Пользователи"
+        description="Все учётные записи: клиенты из Telegram и доступ в админку"
         actions={
           <button className="btn-primary" onClick={() => setCreateOpen(true)}>
             <Plus size={18} /> Добавить
@@ -101,7 +137,7 @@ export default function AdminUsersPage() {
         />
         <input
           className="input pl-10 max-w-sm"
-          placeholder="Поиск по телефону / имени"
+          placeholder="Телефон, имя, username или Telegram ID"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -112,66 +148,110 @@ export default function AdminUsersPage() {
           <div className="py-16 flex justify-center">
             <LoadingSpinner className="size-6" />
           </div>
-        ) : !query.data?.length ? (
-          <EmptyState title="Нет администраторов" icon={<Users size={40} strokeWidth={1.5} />} />
+        ) : total === 0 ? (
+          <EmptyState title="Нет пользователей" icon={<Users size={40} strokeWidth={1.5} />} />
         ) : (
-          <ul className="divide-y divide-slate-100">
-            {query.data.map((u) => {
-              const displayName =
-                [u.first_name, u.last_name].filter(Boolean).join(" ") ||
-                u.username ||
-                u.phone ||
-                `User #${u.id}`;
-              return (
-                <li key={u.id} className="flex items-center gap-3 p-3 sm:p-4 hover:bg-slate-50">
-                  <div className="size-10 rounded-full bg-slate-100 flex items-center justify-center font-medium text-slate-600">
-                    {displayName[0]?.toUpperCase() ?? "?"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-slate-900">{displayName}</span>
-                      {u.is_superadmin && <span className="chip-purple">Super</span>}
-                      {u.is_blocked && <span className="chip-red">Заблокирован</span>}
-                      {!u.is_active && <span className="chip-red">Неактивен</span>}
+          <>
+            <ul className="divide-y divide-slate-100">
+              {items.map((u) => {
+                const displayName =
+                  [u.first_name, u.last_name].filter(Boolean).join(" ") ||
+                  u.username ||
+                  u.phone ||
+                  `User #${u.id}`;
+                return (
+                  <li key={u.id} className="flex items-center gap-3 p-3 sm:p-4 hover:bg-slate-50">
+                    <div className="size-10 rounded-full bg-slate-100 flex items-center justify-center font-medium text-slate-600">
+                      {displayName[0]?.toUpperCase() ?? "?"}
                     </div>
-                    <div className="text-xs text-slate-500 truncate">
-                      {u.phone ?? "—"} · TG: {u.telegram_id}
-                    </div>
-                    {!u.is_superadmin && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {u.store_ids.map((sid) => (
-                          <span key={sid} className="chip-blue">
-                            {storeMap.get(sid) ?? `#${sid}`}
-                          </span>
-                        ))}
-                        {!u.store_ids.length && (
-                          <span className="text-xs text-slate-400">
-                            без магазинов — нечего администрировать
-                          </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-slate-900">{displayName}</span>
+                        {u.is_superadmin ? (
+                          <span className="chip-purple">Супер-админ</span>
+                        ) : u.is_admin ? (
+                          <span className="chip-blue">Админ</span>
+                        ) : (
+                          <span className="chip">Клиент</span>
                         )}
+                        {u.is_blocked && <span className="chip-red">Заблокирован</span>}
+                        {!u.is_active && <span className="chip-red">Неактивен</span>}
                       </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      className="btn-ghost !p-2"
-                      onClick={() => setEditing(u)}
-                    >
-                      <Pencil size={16} />
-                    </button>
-                    {u.id !== me.id && (
+                      <div className="text-xs text-slate-500 truncate">
+                        {u.phone ?? "—"} · TG: {u.telegram_id}
+                        {u.username ? ` · @${u.username}` : ""}
+                      </div>
+                      {u.is_admin && !u.is_superadmin && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {u.store_ids.map((sid) => (
+                            <span key={sid} className="chip-blue">
+                              {storeMap.get(sid) ?? `#${sid}`}
+                            </span>
+                          ))}
+                          {!u.store_ids.length && (
+                            <span className="text-xs text-slate-400">
+                              магазины не назначены
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
                       <button
-                        className="btn-ghost !p-2 text-red-600"
-                        onClick={() => setConfirm(u)}
+                        type="button"
+                        className="btn-ghost !p-2"
+                        onClick={() => setEditing(u)}
+                        aria-label="Редактировать"
                       >
-                        <Trash2 size={16} />
+                        <Pencil size={16} />
                       </button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                      {u.id !== me.id && (
+                        <button
+                          type="button"
+                          className="btn-ghost !p-2 text-red-600"
+                          onClick={() => setConfirm(u)}
+                          aria-label="Удалить"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3 py-3 sm:px-4 border-t border-slate-100 bg-slate-50/80">
+              <p className="text-sm text-slate-600 order-2 sm:order-1">
+                {fromRow}–{toRow} из {total}
+                {totalPages > 1 && (
+                  <span className="text-slate-400 hidden sm:inline">
+                    {" "}
+                    · стр. {page} / {totalPages}
+                  </span>
+                )}
+              </p>
+              <div className="flex items-center gap-2 order-1 sm:order-2">
+                <button
+                  type="button"
+                  className="btn-secondary !py-1.5 !px-3"
+                  disabled={page <= 1 || query.isFetching}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft size={18} />
+                  Назад
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary !py-1.5 !px-3"
+                  disabled={page >= totalPages || query.isFetching}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Вперёд
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
@@ -187,7 +267,7 @@ export default function AdminUsersPage() {
       <ConfirmDialog
         open={!!confirm}
         title="Удалить пользователя?"
-        message={`Пользователь «${confirm?.first_name ?? confirm?.phone}» будет удалён.`}
+        message={`Будет удалён пользователь «${confirm?.first_name ?? confirm?.phone ?? confirm?.username ?? `#${confirm?.id}`}». Действие нельзя отменить.`}
         onClose={() => setConfirm(null)}
         onConfirm={() => confirm && deleteMut.mutate(confirm.id)}
         loading={deleteMut.isPending}
@@ -273,8 +353,12 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
   const isSuper = watch("is_superadmin");
 
   return (
-    <Modal open={open} onClose={onClose} title="Новый администратор">
+    <Modal open={open} onClose={onClose} title="Новый пользователь с доступом в админку">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <p className="text-sm text-slate-600 -mt-1">
+          Создаётся учётная запись с паролем для входа по телефону. Клиенты из Telegram появляются в
+          списке автоматически.
+        </p>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">Telegram ID</label>
@@ -387,8 +471,18 @@ function EditUserModal({
 
   const onSubmit = async (raw: EditInput) => {
     const data = raw as unknown as EditOutput;
-    const payload: Partial<EditOutput> = { ...data };
-    if (!payload.password) delete payload.password;
+    const payload: AdminUserUpdate = {
+      phone: data.phone === "" ? null : data.phone,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      username: data.username,
+      is_admin: data.is_admin,
+      is_superadmin: data.is_superadmin,
+      is_active: data.is_active,
+      is_blocked: data.is_blocked,
+      store_ids: data.store_ids,
+    };
+    if (data.password) payload.password = data.password;
     try {
       await updateAdminUser(user.id, payload);
       qc.invalidateQueries({ queryKey: ["admin-users"] });
@@ -400,12 +494,15 @@ function EditUserModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Редактировать администратора">
+    <Modal open={open} onClose={onClose} title="Редактировать пользователя">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <label className="label">Телефон</label>
-          <input className="input" {...register("phone")} />
+          <input className="input" {...register("phone")} placeholder="Пусто — только Telegram" />
           {errors.phone && <p className="text-xs text-red-600 mt-1">{errors.phone.message}</p>}
+          <p className="text-xs text-slate-500 mt-1">
+            Для входа в админку нужен телефон и пароль; для клиентов поле можно оставить пустым.
+          </p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>

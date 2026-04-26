@@ -31,7 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/couriers", label: "Курьеры", icon: Truck },
   { to: "/products", label: "Каталог товаров", icon: Box, superadminOnly: true },
   { to: "/categories", label: "Категории", icon: FolderTree, superadminOnly: true },
-  { to: "/users", label: "Админы", icon: Users, superadminOnly: true },
+  { to: "/users", label: "Пользователи", icon: Users, superadminOnly: true },
 ];
 
 interface SidebarProps {
