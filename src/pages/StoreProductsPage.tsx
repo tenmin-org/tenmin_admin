@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Package, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package, Plus, Search, Trash2 } from "lucide-react";
 import { useDeferredValue, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -26,25 +26,50 @@ import { resolveMediaUrl } from "@/lib/mediaUrl";
 
 const PAGE_SIZE = 30;
 
-function ProductThumb({ src, alt }: { src: string | null | undefined; alt: string }) {
+function ProductThumb({
+  src,
+  alt,
+  onClick,
+  frameClassName = "size-14 sm:size-16",
+}: {
+  src: string | null | undefined;
+  alt: string;
+  onClick?: () => void;
+  frameClassName?: string;
+}) {
   const resolved = resolveMediaUrl(src);
   const [broken, setBroken] = useState(false);
-  if (!resolved || broken) {
-    return (
-      <div className="size-14 sm:size-16 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200/60">
+  const inner =
+    !resolved || broken ? (
+      <div
+        className={`${frameClassName} rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200/60`}
+      >
         <Package size={22} className="text-slate-400" strokeWidth={1.5} />
       </div>
+    ) : (
+      <img
+        src={resolved}
+        alt={onClick ? "" : alt}
+        className={`${frameClassName} rounded-lg object-cover bg-slate-100 flex-shrink-0 border border-slate-200/60`}
+        loading="lazy"
+        onError={() => setBroken(true)}
+      />
+    );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex-shrink-0 rounded-lg p-0 border-0 bg-transparent cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+        title="Редактировать"
+        aria-label={`Редактировать: ${alt || "товар"}`}
+      >
+        {inner}
+      </button>
     );
   }
-  return (
-    <img
-      src={resolved}
-      alt={alt}
-      className="size-14 sm:size-16 rounded-lg object-cover bg-slate-100 flex-shrink-0 border border-slate-200/60"
-      loading="lazy"
-      onError={() => setBroken(true)}
-    />
-  );
+  return inner;
 }
 
 export default function StoreProductsPage() {
@@ -227,32 +252,34 @@ export default function StoreProductsPage() {
             {items.map((sp) => (
               <li
                 key={sp.id}
-                className="flex items-center gap-3 p-3 sm:p-4 hover:bg-slate-50"
+                className="flex items-center gap-2 p-3 sm:gap-3 sm:p-4 hover:bg-slate-50"
               >
                 <ProductThumb
                   src={sp.product_image_url}
                   alt={sp.product_name ?? ""}
+                  onClick={() => setEditing(sp)}
                 />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-slate-900 truncate">
+                <div className="flex-1 min-w-0 pr-1">
+                  <div className="font-medium text-slate-900 line-clamp-2 sm:line-clamp-none sm:truncate">
                     {sp.product_name ?? `Товар #${sp.product_id}`}
                   </div>
-                  <div className="text-xs text-slate-500 truncate">
+                  <div className="text-xs text-slate-500 truncate mt-0.5">
                     {sp.category_name ?? "—"}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                   <PriceCell
                     value={sp.price}
                     onSave={(v) =>
                       updateMut.mutate({ id: sp.id, data: { price: v } })
                     }
                   />
-                  <label className="flex items-center gap-1.5 text-xs text-slate-600">
+                  <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
                     <input
                       type="checkbox"
-                      className="size-4"
+                      className="size-4 shrink-0"
                       checked={sp.is_available}
+                      aria-label="В наличии"
                       onChange={(e) =>
                         updateMut.mutate({
                           id: sp.id,
@@ -260,17 +287,13 @@ export default function StoreProductsPage() {
                         })
                       }
                     />
-                    В наличии
+                    <span className="hidden sm:inline whitespace-nowrap">В наличии</span>
                   </label>
                   <button
-                    className="btn-ghost !p-2"
-                    onClick={() => setEditing(sp)}
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
+                    type="button"
                     className="btn-ghost !p-2 text-red-600"
                     onClick={() => setConfirm(sp)}
+                    aria-label="Убрать из магазина"
                   >
                     <Trash2 size={16} />
                   </button>
