@@ -7,7 +7,6 @@ import { extractError } from "@/api/client";
 import {
   createStoreProduct,
   deleteStoreProduct,
-  listCategories,
   listProducts,
   listStoreCategories,
   listStoreProducts,
@@ -99,15 +98,25 @@ export default function StoreProductsPage() {
   }, [deferredSearch, categoryId, availability]);
 
   const storeCategoriesQ = useQuery({
-    queryKey: ["store-categories-filter", effectiveStoreId],
+    queryKey: ["store-categories-filter", effectiveStoreId, "leaf"],
     queryFn: () =>
       listStoreCategories({
         store_id: effectiveStoreId!,
         limit: 500,
         offset: 0,
+        leaf_only: true,
       }),
     enabled: !!effectiveStoreId,
   });
+
+  useEffect(() => {
+    if (categoryId === "") return;
+    if (storeCategoriesQ.isLoading) return;
+    const items = storeCategoriesQ.data?.items ?? [];
+    if (items.length === 0) return;
+    const allowed = new Set(items.map((sc) => sc.category_id));
+    if (!allowed.has(categoryId)) setCategoryId("");
+  }, [categoryId, storeCategoriesQ.data?.items, storeCategoriesQ.isLoading]);
 
   const query = useQuery({
     queryKey: [
@@ -427,9 +436,16 @@ function AddStoreProductModal({
     queryKey: ["products-select"],
     queryFn: () => listProducts({ limit: 500 }),
   });
-  const categoriesQ = useQuery({
-    queryKey: ["categories-select"],
-    queryFn: () => listCategories({}),
+  const storeLeafCategoriesQ = useQuery({
+    queryKey: ["store-categories-filter", storeId, "leaf"],
+    queryFn: () =>
+      listStoreCategories({
+        store_id: storeId,
+        limit: 500,
+        offset: 0,
+        leaf_only: true,
+      }),
+    enabled: open && !!storeId,
   });
 
   const [productId, setProductId] = useState("");
@@ -488,9 +504,9 @@ function AddStoreProductModal({
           <label className="label">Категория</label>
           <select className="input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
             <option value="">— выберите —</option>
-            {categoriesQ.data?.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
+            {(storeLeafCategoriesQ.data?.items ?? []).map((sc) => (
+              <option key={sc.category_id} value={sc.category_id}>
+                {sc.category_name ?? `Категория #${sc.category_id}`}
               </option>
             ))}
           </select>
@@ -545,13 +561,26 @@ function EditStoreProductModal({
   item: StoreProduct;
 }) {
   const qc = useQueryClient();
-  const categoriesQ = useQuery({
-    queryKey: ["categories-select"],
-    queryFn: () => listCategories({}),
+  const storeLeafCategoriesQ = useQuery({
+    queryKey: ["store-categories-filter", item.store_id, "leaf"],
+    queryFn: () =>
+      listStoreCategories({
+        store_id: item.store_id,
+        limit: 500,
+        offset: 0,
+        leaf_only: true,
+      }),
+    enabled: open,
   });
+
   const [price, setPrice] = useState(item.price);
   const [categoryId, setCategoryId] = useState(String(item.category_id));
   const [available, setAvailable] = useState(item.is_available);
+
+  const leafItems = storeLeafCategoriesQ.data?.items ?? [];
+  const currentInLeafList = leafItems.some(
+    (sc) => sc.category_id === item.category_id
+  );
 
   const mut = useMutation({
     mutationFn: () =>
@@ -583,9 +612,15 @@ function EditStoreProductModal({
         <div>
           <label className="label">Категория</label>
           <select className="input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-            {categoriesQ.data?.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
+            {!currentInLeafList && (
+              <option value={String(item.category_id)}>
+                {item.category_name ?? `Категория #${item.category_id}`}{" "}
+                (сейчас не лист / не на витрине)
+              </option>
+            )}
+            {leafItems.map((sc) => (
+              <option key={sc.category_id} value={sc.category_id}>
+                {sc.category_name ?? `Категория #${sc.category_id}`}
               </option>
             ))}
           </select>

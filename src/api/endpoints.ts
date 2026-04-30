@@ -145,6 +145,7 @@ export async function listLinkedStoreCategoryIds(store_id: number) {
 export async function listStoreCategories(params: {
   store_id: number;
   is_active?: boolean;
+  leaf_only?: boolean;
   limit?: number;
   offset?: number;
 }) {
