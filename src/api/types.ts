@@ -180,6 +180,7 @@ export interface OrderItem {
 
 export interface OrderDetail extends OrderListItem {
   comment: string | null;
+  payment_method?: string;
   delivery_address: string | null;
   house: string | null;
   floor: string | null;

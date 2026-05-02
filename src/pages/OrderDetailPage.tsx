@@ -180,6 +180,12 @@ export default function OrderDetailPage() {
                 {o.user_phone ?? "—"}
               </a>
             </div>
+            <p className="text-sm text-slate-600 pl-6 -mt-1">
+              Оплата при получении:{" "}
+              <span className="font-medium text-slate-800">
+                {o.payment_method === "card" ? "карта" : "перевод"}
+              </span>
+            </p>
             {address && (
               <div className="flex items-start gap-2 text-sm">
                 <MapPin size={16} className="text-slate-400 mt-0.5" />
