@@ -35,6 +35,15 @@ const schema = z.object({
     .transform((v) => (v === "" || v === undefined ? null : Number(v)))
     .refine((v) => v === null || !Number.isNaN(v), { message: "Число" }),
   image_url: z.string().optional().transform((v) => (v ? v : null)),
+  delivery_price: z
+    .string()
+    .optional()
+    .transform((v) => {
+      if (v === "" || v === undefined) return 0;
+      const n = Number(v);
+      return Number.isNaN(n) ? 0 : n;
+    })
+    .refine((v) => v >= 0, { message: "Число не меньше 0" }),
   is_active: z.boolean(),
   is_new: z.boolean(),
 });
@@ -187,6 +196,8 @@ function StoreFormModal({
       latitude: store?.latitude != null ? String(store.latitude) : "",
       longitude: store?.longitude != null ? String(store.longitude) : "",
       image_url: store?.image_url ?? "",
+      delivery_price:
+        store?.delivery_price != null ? String(store.delivery_price) : "0",
       is_active: store?.is_active ?? true,
       is_new: store?.is_new ?? false,
     },
@@ -239,6 +250,19 @@ function StoreFormModal({
             <label className="label">Долгота</label>
             <input className="input" {...register("longitude")} placeholder="76.95" />
           </div>
+        </div>
+        <div>
+          <label className="label">Стоимость доставки (₸)</label>
+          <input
+            className="input"
+            type="text"
+            inputMode="decimal"
+            {...register("delivery_price")}
+            placeholder="0"
+          />
+          {errors.delivery_price && (
+            <p className="text-xs text-red-600 mt-1">{errors.delivery_price.message}</p>
+          )}
         </div>
         <div>
           <label className="label">Картинка (URL)</label>

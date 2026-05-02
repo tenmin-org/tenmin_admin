@@ -18,6 +18,8 @@ export interface Store {
   image_url: string | null;
   is_active: boolean;
   is_new: boolean;
+  /** Стоимость доставки, ₸ */
+  delivery_price: number;
 }
 
 export type StoreCreate = Omit<Store, "id">;
