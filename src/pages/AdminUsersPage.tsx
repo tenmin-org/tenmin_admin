@@ -497,6 +497,16 @@ function EditUserModal({
     <Modal open={open} onClose={onClose} title="Редактировать пользователя">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
+          <label className="label">ID пользователя</label>
+          <input
+            type="text"
+            className="input bg-slate-50 text-slate-700 cursor-not-allowed"
+            readOnly
+            tabIndex={-1}
+            value={user.id}
+          />
+        </div>
+        <div>
           <label className="label">Телефон</label>
           <input className="input" {...register("phone")} placeholder="Пусто — только Telegram" />
           {errors.phone && <p className="text-xs text-red-600 mt-1">{errors.phone.message}</p>}
