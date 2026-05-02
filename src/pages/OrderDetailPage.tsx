@@ -67,6 +67,13 @@ export default function OrderDetailPage() {
   }
 
   const o = orderQ.data;
+  const lineTotal = (it: (typeof o.items)[number]) => {
+    const unit = Number(it.price);
+    if (it.weight_grams != null && it.weight_grams > 0) {
+      return unit * (it.weight_grams / 1000);
+    }
+    return unit * it.quantity;
+  };
   const address = [o.delivery_address, o.house, o.apartment].filter(Boolean).join(", ");
   const availableCouriers = couriersQ.data?.filter((c) =>
     c.store_ids.includes(o.store_id)
@@ -94,11 +101,13 @@ export default function OrderDetailPage() {
                       {it.product_name ?? `Товар #${it.product_id}`}
                     </div>
                     <div className="text-sm text-slate-500">
-                      {it.quantity} × {formatPrice(it.price)}
+                      {it.weight_grams != null && it.weight_grams > 0
+                        ? `${it.weight_grams} г × ${formatPrice(it.price)}/кг`
+                        : `${it.quantity} × ${formatPrice(it.price)}`}
                     </div>
                   </div>
                   <div className="font-semibold text-slate-900">
-                    {formatPrice(Number(it.price) * it.quantity)}
+                    {formatPrice(lineTotal(it))}
                   </div>
                 </li>
               ))}

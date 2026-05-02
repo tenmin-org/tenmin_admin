@@ -175,6 +175,7 @@ export interface OrderItem {
   product_name: string | null;
   quantity: number;
   price: string;
+  weight_grams?: number | null;
 }
 
 export interface OrderDetail extends OrderListItem {
