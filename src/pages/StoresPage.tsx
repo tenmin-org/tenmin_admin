@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Modal } from "@/components/ui/Modal";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { ImageUrlFieldWithUpload } from "@/components/ui/ImageUrlFieldWithUpload";
 import { useAuth } from "@/store/auth";
 
 const schema = z.object({
@@ -187,6 +188,8 @@ function StoreFormModal({
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormInput>({
     resolver: zodResolver(schema),
@@ -264,14 +267,13 @@ function StoreFormModal({
             <p className="text-xs text-red-600 mt-1">{errors.delivery_price.message}</p>
           )}
         </div>
-        <div>
-          <label className="label">Картинка (URL)</label>
-          <input
-            className="input"
-            {...register("image_url")}
-            placeholder="https://... или /media/..."
-          />
-        </div>
+        <ImageUrlFieldWithUpload
+          label="Картинка"
+          hint="Ссылка или загрузка с устройства (до 5 МБ)."
+          folder="stores"
+          value={watch("image_url") ?? ""}
+          onChange={(v) => setValue("image_url", v, { shouldDirty: true })}
+        />
         <div className="flex items-center gap-6">
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" {...register("is_active")} className="size-4" />

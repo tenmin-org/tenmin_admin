@@ -45,6 +45,23 @@ export async function getMe() {
   return data;
 }
 
+// ---------- Media (admin uploads) ----------
+
+export type MediaUploadFolder = "products" | "categories" | "stores";
+
+export async function uploadAdminMedia(
+  file: File,
+  folder: MediaUploadFolder = "products"
+) {
+  const body = new FormData();
+  body.append("file", file);
+  const { data } = await api.post<{ url: string }>("/media/upload", body, {
+    params: { folder },
+    timeout: 120_000,
+  });
+  return data.url;
+}
+
 // ---------- Stores ----------
 
 export async function listStores() {

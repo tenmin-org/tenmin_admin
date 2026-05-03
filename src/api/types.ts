@@ -143,10 +143,17 @@ export interface PaginatedStoreProducts {
 
 export interface StoreProductCreate {
   store_id: number;
-  product_id: number;
   category_id: number;
   price: string | number;
   is_available: boolean;
+  /** Ровно одно из двух: существующий товар или данные для новой записи в `products`. */
+  product_id?: number;
+  new_product?: {
+    name: string;
+    description?: string | null;
+    image_url?: string | null;
+    measure?: string | null;
+  };
 }
 
 export interface StoreProductUpdate {

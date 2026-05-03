@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Modal } from "@/components/ui/Modal";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { ImageUrlFieldWithUpload } from "@/components/ui/ImageUrlFieldWithUpload";
 
 const schema = z.object({
   name: z.string().trim().min(1, "Введите название"),
@@ -164,7 +165,7 @@ function CategoryModal({
 }) {
   const qc = useQueryClient();
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } =
     useForm<FormInput>({
       resolver: zodResolver(schema),
       values: {
@@ -220,10 +221,13 @@ function CategoryModal({
             </select>
           </div>
         </div>
-        <div>
-          <label className="label">Картинка (URL)</label>
-          <input className="input" {...register("image_url")} />
-        </div>
+        <ImageUrlFieldWithUpload
+          label="Картинка"
+          hint="Ссылка или загрузка с устройства (до 5 МБ)."
+          folder="categories"
+          value={watch("image_url") ?? ""}
+          onChange={(v) => setValue("image_url", v, { shouldDirty: true })}
+        />
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-secondary" onClick={onClose}>
             Отмена

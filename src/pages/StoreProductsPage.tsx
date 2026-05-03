@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Package, Plus, Search, Trash2 } from "lucide-react";
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { extractError } from "@/api/client";
@@ -13,13 +13,14 @@ import {
   listStores,
   updateStoreProduct,
 } from "@/api/endpoints";
-import type { StoreProduct } from "@/api/types";
+import type { Product, StoreProduct } from "@/api/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Modal } from "@/components/ui/Modal";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StoreSelect } from "@/components/ui/StoreSelect";
+import { ImageUrlFieldWithUpload } from "@/components/ui/ImageUrlFieldWithUpload";
 import { formatPrice } from "@/lib/format";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 
@@ -432,77 +433,152 @@ function AddStoreProductModal({
   storeId: number;
 }) {
   const qc = useQueryClient();
-  const productsQ = useQuery({
-    queryKey: ["products-select"],
-    queryFn: () => listProducts({ limit: 500 }),
-  });
+  const blurCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const storeLeafCategoriesQ = useQuery({
-    queryKey: ["store-categories-filter", storeId, "leaf"],
+    queryKey: ["store-categories-filter", storeId, "leaf", "active"],
     queryFn: () =>
       listStoreCategories({
         store_id: storeId,
         limit: 500,
         offset: 0,
         leaf_only: true,
+        is_active: true,
       }),
     enabled: open && !!storeId,
   });
 
-  const [productId, setProductId] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [nameInput, setNameInput] = useState("");
+  const deferredName = useDeferredValue(nameInput.trim());
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [createNew, setCreateNew] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [price, setPrice] = useState("");
   const [available, setAvailable] = useState(true);
+  const [newProductImageUrl, setNewProductImageUrl] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    setCategoryId("");
+    setNameInput("");
+    setSelectedProduct(null);
+    setCreateNew(false);
+    setPanelOpen(false);
+    setPrice("");
+    setAvailable(true);
+    setNewProductImageUrl("");
+  }, [open, storeId]);
+
+  useEffect(() => {
+    return () => {
+      if (blurCloseTimer.current) clearTimeout(blurCloseTimer.current);
+    };
+  }, []);
+
+  const canSearch = deferredName.length >= 2 && Boolean(categoryId);
+
+  const productsSearchQ = useQuery({
+    queryKey: ["products-search", deferredName],
+    queryFn: () => listProducts({ search: deferredName, limit: 500 }),
+    enabled: open && canSearch,
+    staleTime: 20_000,
+  });
 
   const mut = useMutation({
-    mutationFn: () =>
-      createStoreProduct({
+    mutationFn: () => {
+      const cid = Number(categoryId);
+      if (!cid || !price) {
+        return Promise.reject(new Error("Заполните категорию и цену"));
+      }
+      if (createNew) {
+        const name = nameInput.trim();
+        if (!name) {
+          return Promise.reject(new Error("Введите название нового товара"));
+        }
+        const trimmedUrl = newProductImageUrl.trim();
+        return createStoreProduct({
+          store_id: storeId,
+          category_id: cid,
+          price,
+          is_available: available,
+          new_product: {
+            name,
+            ...(trimmedUrl ? { image_url: trimmedUrl } : {}),
+          },
+        });
+      }
+      if (!selectedProduct) {
+        return Promise.reject(new Error("Выберите товар из списка или создайте новый"));
+      }
+      return createStoreProduct({
         store_id: storeId,
-        product_id: Number(productId),
-        category_id: Number(categoryId),
+        category_id: cid,
         price,
         is_available: available,
-      }),
+        product_id: selectedProduct.id,
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["store-products", storeId] });
+      qc.invalidateQueries({ queryKey: ["products-search"] });
       toast.success("Товар добавлен в магазин");
-      setProductId("");
-      setCategoryId("");
-      setPrice("");
-      setAvailable(true);
       onClose();
     },
     onError: (e) => toast.error(extractError(e)),
   });
 
-  const selectedProduct = productsQ.data?.find((p) => String(p.id) === productId);
+  const scheduleClosePanel = () => {
+    if (blurCloseTimer.current) clearTimeout(blurCloseTimer.current);
+    blurCloseTimer.current = setTimeout(() => setPanelOpen(false), 180);
+  };
+
+  const cancelClosePanel = () => {
+    if (blurCloseTimer.current) {
+      clearTimeout(blurCloseTimer.current);
+      blurCloseTimer.current = null;
+    }
+  };
+
+  const onPickProduct = (p: Product) => {
+    setSelectedProduct(p);
+    setCreateNew(false);
+    setNameInput(p.name);
+    setPanelOpen(false);
+  };
+
+  const onChooseCreateNew = () => {
+    setSelectedProduct(null);
+    setCreateNew(true);
+    setPanelOpen(false);
+  };
+
+  const showDropdown =
+    panelOpen && canSearch && categoryId && !selectedProduct;
+
+  const canSubmit =
+    Boolean(categoryId) &&
+    Boolean(price) &&
+    (Boolean(selectedProduct) ||
+      (createNew && nameInput.trim().length > 0));
+
+  const displayProduct = selectedProduct;
 
   return (
     <Modal open={open} onClose={onClose} title="Добавить товар в магазин">
       <div className="space-y-4">
         <div>
-          <label className="label">Товар</label>
-          <div className="flex gap-3 items-start">
-            <ProductThumb
-              src={selectedProduct?.image_url}
-              alt={selectedProduct?.name ?? ""}
-            />
-            <select
-              className="input flex-1 min-w-0"
-              value={productId}
-              onChange={(e) => setProductId(e.target.value)}
-            >
-              <option value="">— выберите —</option>
-              {productsQ.data?.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div>
-          <label className="label">Категория</label>
-          <select className="input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+          <label className="label">Категория (активные)</label>
+          <select
+            className="input"
+            value={categoryId}
+            onChange={(e) => {
+              setCategoryId(e.target.value);
+              setSelectedProduct(null);
+              setCreateNew(false);
+              setNewProductImageUrl("");
+            }}
+          >
             <option value="">— выберите —</option>
             {(storeLeafCategoriesQ.data?.items ?? []).map((sc) => (
               <option key={sc.category_id} value={sc.category_id}>
@@ -510,7 +586,156 @@ function AddStoreProductModal({
               </option>
             ))}
           </select>
+          {storeLeafCategoriesQ.isSuccess &&
+          (storeLeafCategoriesQ.data?.items?.length ?? 0) === 0 ? (
+            <p className="text-sm text-amber-700 mt-1">
+              Нет активных «листовых» категорий. Включите категорию на витрине или
+              добавьте подкатегорию без дочерних в справочнике.
+            </p>
+          ) : null}
         </div>
+
+        <div className={!categoryId ? "opacity-60 pointer-events-none" : ""}>
+          <label className="label">Название товара</label>
+          <p className="text-xs text-slate-500 mb-1">
+            От 2 символов — поиск по каталогу. Можно выбрать позицию или создать
+            новую запись в каталоге.
+          </p>
+          <div className="relative">
+            <input
+              className="input w-full"
+              placeholder={
+                categoryId
+                  ? "Например, Молоко 3,2%"
+                  : "Сначала выберите категорию"
+              }
+              value={nameInput}
+              disabled={!categoryId}
+              onChange={(e) => {
+                const v = e.target.value;
+                setNameInput(v);
+                setSelectedProduct(null);
+              }}
+              onFocus={() => {
+                cancelClosePanel();
+                setPanelOpen(true);
+              }}
+              onBlur={scheduleClosePanel}
+            />
+            {showDropdown ? (
+              <div
+                className="absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-60 overflow-y-auto"
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                {productsSearchQ.isFetching && !productsSearchQ.data?.length ? (
+                  <div className="p-3 flex justify-center">
+                    <LoadingSpinner className="size-5" />
+                  </div>
+                ) : null}
+                {!productsSearchQ.isFetching &&
+                (productsSearchQ.data?.length ?? 0) === 0 ? (
+                  <button
+                    type="button"
+                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-slate-50"
+                    onClick={() => onChooseCreateNew()}
+                  >
+                    Ничего не найдено — создать товар «{deferredName}»
+                  </button>
+                ) : null}
+                {(productsSearchQ.data ?? []).map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="w-full flex gap-2 items-center text-left px-3 py-2 hover:bg-slate-50 border-t border-slate-100 first:border-t-0"
+                    onClick={() => onPickProduct(p)}
+                  >
+                    <ProductThumb
+                      src={p.image_url}
+                      alt={p.name}
+                      frameClassName="size-10 shrink-0"
+                    />
+                    <span className="text-sm truncate">{p.name}</span>
+                  </button>
+                ))}
+                {(productsSearchQ.data?.length ?? 0) > 0 ? (
+                  <button
+                    type="button"
+                    className="w-full text-left px-3 py-2.5 text-sm text-slate-600 border-t border-slate-200 hover:bg-slate-50"
+                    onClick={() => onChooseCreateNew()}
+                  >
+                    Моего товара нет в списке — создать новый «{deferredName}»
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {(displayProduct || createNew) && categoryId ? (
+          <div className="flex gap-3 items-start rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+            {displayProduct ? (
+              <>
+                <ProductThumb
+                  src={displayProduct.image_url}
+                  alt={displayProduct.name}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-slate-500">Выбран из каталога</p>
+                  <p className="text-sm font-medium truncate">
+                    {displayProduct.name}
+                  </p>
+                  <button
+                    type="button"
+                    className="text-xs text-sky-600 mt-1 hover:underline"
+                    onClick={() => {
+                      setSelectedProduct(null);
+                      setCreateNew(false);
+                      setNameInput("");
+                      setNewProductImageUrl("");
+                    }}
+                  >
+                    Сбросить
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="min-w-0 flex-1 w-full">
+                <div className="flex gap-3">
+                  <ProductThumb
+                    src={newProductImageUrl.trim() || null}
+                    alt={nameInput.trim() || "Новый товар"}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-slate-500">Новый товар в каталоге</p>
+                    <p className="text-sm font-medium truncate">
+                      {nameInput.trim() || "—"}
+                    </p>
+                    <button
+                      type="button"
+                      className="text-xs text-sky-600 mt-1 hover:underline"
+                      onClick={() => {
+                        setCreateNew(false);
+                        setNewProductImageUrl("");
+                      }}
+                    >
+                      Отменить создание
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <ImageUrlFieldWithUpload
+                    label="Фото"
+                    hint="Загрузите файл или вставьте ссылку (полный URL или путь /media/…)."
+                    folder="products"
+                    value={newProductImageUrl}
+                    onChange={setNewProductImageUrl}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">Цена</label>
@@ -539,7 +764,7 @@ function AddStoreProductModal({
           <button
             type="button"
             className="btn-primary"
-            disabled={!productId || !categoryId || !price || mut.isPending}
+            disabled={!canSubmit || mut.isPending}
             onClick={() => mut.mutate()}
           >
             {mut.isPending ? <LoadingSpinner className="size-4" /> : null}
