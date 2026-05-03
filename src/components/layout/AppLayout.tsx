@@ -1,8 +1,9 @@
-import { Menu } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 
 import { Sidebar } from "./Sidebar";
+import { useAuth } from "@/store/auth";
 import type { AdminProfile } from "@/api/types";
 
 interface AppLayoutProps {
@@ -11,6 +12,13 @@ interface AppLayoutProps {
 
 export function AppLayout({ profile }: AppLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const logout = useAuth((s) => s.logout);
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <div className="min-h-screen flex">
@@ -25,18 +33,28 @@ export function AppLayout({ profile }: AppLayoutProps) {
         <header className="lg:hidden sticky top-0 z-30 bg-white border-b border-slate-200 h-14 flex items-center px-3 gap-3">
           <button
             type="button"
-            className="p-2 -ml-2 rounded-lg hover:bg-slate-100"
+            className="p-2 -ml-2 rounded-lg hover:bg-slate-100 shrink-0"
             onClick={() => setMobileOpen(true)}
             aria-label="Меню"
           >
             <Menu size={22} />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="size-7 rounded-md bg-brand-600 text-white flex items-center justify-center text-sm font-bold">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="size-7 rounded-md bg-brand-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
               T
             </div>
-            <div className="font-semibold text-slate-900">TenMin Admin</div>
+            <div className="font-semibold text-slate-900 truncate">
+              TenMin Admin
+            </div>
           </div>
+          <button
+            type="button"
+            className="p-2 -mr-2 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-900 shrink-0"
+            onClick={handleLogout}
+            aria-label="Выйти"
+          >
+            <LogOut size={22} />
+          </button>
         </header>
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
