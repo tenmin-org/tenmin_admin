@@ -126,56 +126,70 @@ function StoreCategoryTreeRow({
   const isExpanded = expandedCategoryIds.has(sc.category_id);
   const rowPad = 12 + depth * 18;
 
+  const name = sc.category_name ?? `Категория #${sc.category_id}`;
+
   return (
     <>
       <li
-        className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 hover:bg-slate-50"
+        className="flex flex-col gap-3 p-3 sm:p-4 hover:bg-slate-50 sm:flex-row sm:items-center sm:gap-3"
         style={{ paddingLeft: rowPad }}
       >
-        <div className="w-8 flex-shrink-0 flex justify-center items-center self-start mt-1">
-          {hasChildren ? (
-            <button
-              type="button"
-              className="rounded-md p-1 text-slate-500 hover:bg-slate-200/80 hover:text-slate-800"
-              aria-expanded={isExpanded}
-              aria-label={isExpanded ? "Свернуть подкатегории" : "Показать подкатегории"}
-              onClick={() => toggleExpand(sc.category_id)}
-            >
-              <ChevronRight
-                size={20}
-                className={`transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
-              />
-            </button>
-          ) : (
-            <span className="block w-8" aria-hidden />
-          )}
-        </div>
-        <CategoryThumb
-          src={sc.category_image_url}
-          alt={sc.category_name ?? ""}
-        />
-        <div
-          className={`flex-1 min-w-0 ${hasChildren ? "cursor-pointer select-none" : ""}`}
-          onClick={hasChildren ? () => toggleExpand(sc.category_id) : undefined}
-        >
-          <div className="font-medium text-slate-900 truncate">
-            {sc.category_name ?? `Категория #${sc.category_id}`}
+        <div className="flex min-w-0 flex-1 items-start gap-2 sm:items-center sm:gap-3">
+          <div className="mt-1 flex w-8 flex-shrink-0 items-center justify-center self-start sm:mt-0">
+            {hasChildren ? (
+              <button
+                type="button"
+                className="rounded-md p-1 text-slate-500 hover:bg-slate-200/80 hover:text-slate-800"
+                aria-expanded={isExpanded}
+                aria-label={isExpanded ? "Свернуть подкатегории" : "Показать подкатегории"}
+                onClick={() => toggleExpand(sc.category_id)}
+              >
+                <ChevronRight
+                  size={20}
+                  className={`transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+                />
+              </button>
+            ) : (
+              <span className="block w-8" aria-hidden />
+            )}
           </div>
-          <div className="text-xs text-slate-500">Позиция: {sc.position}</div>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <input
-            type="number"
-            className="input !py-1 !px-2 w-20 text-sm"
-            defaultValue={sc.position}
-            key={`${sc.id}-${sc.position}`}
-            onBlur={(e) => {
-              const v = Number(e.target.value);
-              if (!Number.isNaN(v) && v !== sc.position) {
-                positionMut.mutate({ id: sc.id, position: v });
-              }
-            }}
+          <CategoryThumb
+            src={sc.category_image_url}
+            alt={name}
           />
+          <div
+            className={`min-w-0 flex-1 ${hasChildren ? "cursor-pointer select-none" : ""}`}
+            onClick={hasChildren ? () => toggleExpand(sc.category_id) : undefined}
+          >
+            <div
+              className="font-medium text-slate-900 break-words sm:truncate"
+              title={name}
+            >
+              {name}
+            </div>
+            <div className="hidden text-xs text-slate-500 sm:block">
+              Позиция: {sc.position}
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2 sm:justify-start">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500 sm:hidden">
+              Позиция
+            </span>
+            <input
+              type="number"
+              className="input !py-1 !px-2 w-[4.5rem] text-sm"
+              defaultValue={sc.position}
+              key={`${sc.id}-${sc.position}`}
+              onBlur={(e) => {
+                const v = Number(e.target.value);
+                if (!Number.isNaN(v) && v !== sc.position) {
+                  positionMut.mutate({ id: sc.id, position: v });
+                }
+              }}
+            />
+          </div>
           <label className="flex items-center gap-1.5 text-xs text-slate-600 whitespace-nowrap">
             <input
               type="checkbox"
