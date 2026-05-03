@@ -232,6 +232,17 @@ function StoreFormModal({
       title={store ? "Редактировать магазин" : "Новый магазин"}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {store ? (
+          <div>
+            <label className="label">ID магазина</label>
+            <input
+              className="input bg-slate-50 text-slate-600 cursor-default"
+              readOnly
+              value={store.id}
+              tabIndex={-1}
+            />
+          </div>
+        ) : null}
         <div>
           <label className="label">Название</label>
           <input className="input" {...register("name")} />
