@@ -20,6 +20,8 @@ export interface Store {
   is_new: boolean;
   /** Стоимость доставки, ₸ */
   delivery_price: number;
+  /** "own" — своя доставка, "yandex" — Яндекс Курьер */
+  delivery_type: 'own' | 'yandex';
 }
 
 export type StoreCreate = Omit<Store, "id">;

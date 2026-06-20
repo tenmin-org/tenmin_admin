@@ -47,6 +47,7 @@ const schema = z.object({
     .refine((v) => v >= 0, { message: "Число не меньше 0" }),
   is_active: z.boolean(),
   is_new: z.boolean(),
+  delivery_type: z.enum(["own", "yandex"]),
 });
 
 type FormInput = z.input<typeof schema>;
@@ -203,6 +204,7 @@ function StoreFormModal({
         store?.delivery_price != null ? String(store.delivery_price) : "0",
       is_active: store?.is_active ?? true,
       is_new: store?.is_new ?? false,
+      delivery_type: store?.delivery_type ?? "own",
     },
   });
 
@@ -294,6 +296,13 @@ function StoreFormModal({
             <input type="checkbox" {...register("is_new")} className="size-4" />
             Новинка
           </label>
+        </div>
+        <div>
+          <label className="label">Тип доставки</label>
+          <select className="input" {...register("delivery_type")}>
+            <option value="own">Своя доставка</option>
+            <option value="yandex">Яндекс Курьер</option>
+          </select>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-secondary" onClick={onClose}>
