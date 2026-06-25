@@ -94,7 +94,7 @@ export function Sidebar({ profile, mobileOpen, onMobileClose }: SidebarProps) {
           </button>
         </div>
 
-        <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-0.5">
+        <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-1">
           {items.map((item) => (
             <NavLink
               key={item.to}
@@ -102,14 +102,14 @@ export function Sidebar({ profile, mobileOpen, onMobileClose }: SidebarProps) {
               onClick={onMobileClose}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  "flex items-center gap-3 px-3 py-3 rounded-lg text-base font-medium transition-colors",
                   isActive
                     ? "bg-brand-50 text-brand-700"
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 )
               }
             >
-              <item.icon size={18} strokeWidth={2} />
+              <item.icon size={22} strokeWidth={2} />
               <span>{item.label}</span>
             </NavLink>
           ))}
