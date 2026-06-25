@@ -22,6 +22,8 @@ export interface Store {
   delivery_price: number;
   /** "own" — своя доставка, "yandex" — Яндекс Курьер */
   delivery_type: 'own' | 'yandex';
+  /** Telegram group/supergroup chat_id для уведомлений о заказах */
+  group_id: number | null;
 }
 
 export type StoreCreate = Omit<Store, "id">;
@@ -171,8 +173,6 @@ export interface OrderListItem {
   user_id: number;
   user_phone: string | null;
   user_first_name: string | null;
-  courier_id: number | null;
-  courier_name: string | null;
   status: string;
   total_price: string;
   created_at: string | null;
@@ -199,31 +199,6 @@ export interface OrderDetail extends OrderListItem {
 
 export interface OrderUpdate {
   status?: string;
-  courier_id?: number;
-}
-
-export interface Courier {
-  id: number;
-  telegram_id: number;
-  name: string;
-  phone: string | null;
-  is_active: boolean;
-  store_ids: number[];
-}
-
-export interface CourierCreate {
-  telegram_id: number;
-  name: string;
-  phone?: string | null;
-  is_active: boolean;
-  store_ids: number[];
-}
-
-export interface CourierUpdate {
-  name?: string;
-  phone?: string | null;
-  is_active?: boolean;
-  store_ids?: number[];
 }
 
 export const ORDER_STATUSES = [

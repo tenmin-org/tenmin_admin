@@ -13,7 +13,6 @@ import ProductsPage from "@/pages/ProductsPage";
 import CategoriesPage from "@/pages/CategoriesPage";
 import OrdersPage from "@/pages/OrdersPage";
 import OrderDetailPage from "@/pages/OrderDetailPage";
-import CouriersPage from "@/pages/CouriersPage";
 import AdminUsersPage from "@/pages/AdminUsersPage";
 import { useEffect } from "react";
 
@@ -70,7 +69,6 @@ export default function App() {
         <Route path="/stores" element={<StoresPage />} />
         <Route path="/store-products" element={<StoreProductsPage />} />
         <Route path="/store-categories" element={<StoreCategoriesPage />} />
-        <Route path="/couriers" element={<CouriersPage />} />
         {profile.is_superadmin && (
           <>
             <Route path="/products" element={<ProductsPage />} />

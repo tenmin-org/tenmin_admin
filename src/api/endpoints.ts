@@ -7,9 +7,6 @@ import type {
   Category,
   CategoryCreate,
   CategoryUpdate,
-  Courier,
-  CourierCreate,
-  CourierUpdate,
   OrderDetail,
   OrderListItem,
   OrderUpdate,
@@ -230,20 +227,3 @@ export async function updateOrder(id: number, body: OrderUpdate) {
   return data;
 }
 
-// ---------- Couriers ----------
-
-export async function listCouriers() {
-  const { data } = await api.get<Courier[]>("/couriers/");
-  return data;
-}
-export async function createCourier(body: CourierCreate) {
-  const { data } = await api.post<Courier>("/couriers/", body);
-  return data;
-}
-export async function updateCourier(id: number, body: CourierUpdate) {
-  const { data } = await api.patch<Courier>(`/couriers/${id}`, body);
-  return data;
-}
-export async function deleteCourier(id: number) {
-  await api.delete(`/couriers/${id}`);
-}

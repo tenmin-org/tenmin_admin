@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { extractError } from "@/api/client";
-import { getOrder, listCouriers, updateOrder } from "@/api/endpoints";
+import { getOrder, updateOrder } from "@/api/endpoints";
 import {
   ORDER_STATUSES,
   ORDER_STATUS_LABELS,
@@ -26,27 +26,12 @@ export default function OrderDetailPage() {
     enabled: !!orderId,
   });
 
-  const couriersQ = useQuery({
-    queryKey: ["couriers"],
-    queryFn: listCouriers,
-  });
-
   const statusMut = useMutation({
     mutationFn: (status: string) => updateOrder(orderId, { status }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["order", orderId] });
       qc.invalidateQueries({ queryKey: ["orders"] });
       toast.success("Статус обновлён");
-    },
-    onError: (e) => toast.error(extractError(e)),
-  });
-
-  const courierMut = useMutation({
-    mutationFn: (courier_id: number) => updateOrder(orderId, { courier_id }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["order", orderId] });
-      qc.invalidateQueries({ queryKey: ["orders"] });
-      toast.success("Курьер назначен");
     },
     onError: (e) => toast.error(extractError(e)),
   });
@@ -75,9 +60,6 @@ export default function OrderDetailPage() {
     return unit * it.quantity;
   };
   const address = [o.delivery_address, o.house, o.apartment].filter(Boolean).join(", ");
-  const availableCouriers = couriersQ.data?.filter((c) =>
-    c.store_ids.includes(o.store_id)
-  );
 
   return (
     <div>
@@ -141,28 +123,6 @@ export default function OrderDetailPage() {
                 </option>
               ))}
             </select>
-          </div>
-
-          <div className="card p-4">
-            <h3 className="font-semibold mb-3">Курьер</h3>
-            <select
-              className="input"
-              value={o.courier_id ?? 0}
-              disabled={courierMut.isPending}
-              onChange={(e) => courierMut.mutate(Number(e.target.value))}
-            >
-              <option value={0}>— не назначен —</option>
-              {availableCouriers?.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} {c.phone ? `· ${c.phone}` : ""}
-                </option>
-              ))}
-            </select>
-            {!availableCouriers?.length && (
-              <p className="text-xs text-slate-500 mt-2">
-                Для магазина {o.store_name ?? ""} нет привязанных курьеров.
-              </p>
-            )}
           </div>
 
           <div className="card p-4 space-y-3">

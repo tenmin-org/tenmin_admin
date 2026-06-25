@@ -81,7 +81,6 @@ export default function OrdersPage() {
                     <th>№</th>
                     <th>Магазин</th>
                     <th>Клиент</th>
-                    <th>Курьер</th>
                     <th>Статус</th>
                     <th className="text-right">Сумма</th>
                     <th>Создан</th>
@@ -99,7 +98,6 @@ export default function OrdersPage() {
                           <span className="text-xs text-slate-500">{o.user_phone ?? ""}</span>
                         </div>
                       </td>
-                      <td>{o.courier_name ?? <span className="text-slate-400">—</span>}</td>
                       <td>
                         <span
                           className={cn(

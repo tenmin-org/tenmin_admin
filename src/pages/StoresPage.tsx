@@ -48,6 +48,11 @@ const schema = z.object({
   is_active: z.boolean(),
   is_new: z.boolean(),
   delivery_type: z.enum(["own", "yandex"]),
+  group_id: z
+    .string()
+    .optional()
+    .transform((v) => (v === "" || v === undefined ? null : Number(v)))
+    .refine((v) => v === null || !Number.isNaN(v), { message: "Число" }),
 });
 
 type FormInput = z.input<typeof schema>;
@@ -205,6 +210,7 @@ function StoreFormModal({
       is_active: store?.is_active ?? true,
       is_new: store?.is_new ?? false,
       delivery_type: store?.delivery_type ?? "own",
+      group_id: store?.group_id != null ? String(store.group_id) : "",
     },
   });
 
@@ -287,6 +293,19 @@ function StoreFormModal({
           value={watch("image_url") ?? ""}
           onChange={(v) => setValue("image_url", v, { shouldDirty: true })}
         />
+        <div>
+          <label className="label">Telegram Group ID</label>
+          <input
+            className="input"
+            type="text"
+            inputMode="numeric"
+            {...register("group_id")}
+            placeholder="-1001234567890"
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            Chat ID группы магазина. Заказы будут отправляться в эту группу.
+          </p>
+        </div>
         <div className="flex items-center gap-6">
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" {...register("is_active")} className="size-4" />
