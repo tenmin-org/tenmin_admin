@@ -24,6 +24,10 @@ export interface Store {
   delivery_type: 'own' | 'yandex';
   /** Telegram group/supergroup chat_id для уведомлений о заказах */
   group_id: number | null;
+  /** "transfer" — перевод, "remote" — удалённая оплата */
+  payment_type: 'transfer' | 'remote';
+  /** Номер телефона для Kaspi-перевода */
+  payment_phone: string | null;
 }
 
 export type StoreCreate = Omit<Store, "id">;

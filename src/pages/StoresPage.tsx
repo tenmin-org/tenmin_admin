@@ -53,6 +53,8 @@ const schema = z.object({
     .optional()
     .transform((v) => (v === "" || v === undefined ? null : Number(v)))
     .refine((v) => v === null || !Number.isNaN(v), { message: "Число" }),
+  payment_type: z.enum(["transfer", "remote"]),
+  payment_phone: z.string().optional().transform((v) => (v?.trim() || null)),
 });
 
 type FormInput = z.input<typeof schema>;
@@ -211,6 +213,8 @@ function StoreFormModal({
       is_new: store?.is_new ?? false,
       delivery_type: store?.delivery_type ?? "own",
       group_id: store?.group_id != null ? String(store.group_id) : "",
+      payment_type: store?.payment_type ?? "remote",
+      payment_phone: store?.payment_phone ?? "",
     },
   });
 
@@ -323,6 +327,27 @@ function StoreFormModal({
             <option value="yandex">Яндекс Курьер</option>
           </select>
         </div>
+        <div>
+          <label className="label">Тип оплаты</label>
+          <select className="input" {...register("payment_type")}>
+            <option value="remote">Удалённая оплата</option>
+            <option value="transfer">Перевод (Kaspi и т.д.)</option>
+          </select>
+        </div>
+        {watch("payment_type") === "transfer" && (
+          <div>
+            <label className="label">Номер телефона для перевода</label>
+            <input
+              className="input"
+              type="tel"
+              {...register("payment_phone")}
+              placeholder="+77001234567"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              Клиент получит этот номер в уведомлении при запросе оплаты.
+            </p>
+          </div>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-secondary" onClick={onClose}>
             Отмена
