@@ -670,6 +670,7 @@ function AddStoreCategoryModal({
 
   const [categoryId, setCategoryId] = useState<string>("");
   const [isActive, setIsActive] = useState(true);
+  const [seedProducts, setSeedProducts] = useState(true);
 
   const existingIds = useMemo(
     () => new Set(linkedIdsQ.data ?? []),
@@ -696,12 +697,15 @@ function AddStoreCategoryModal({
         category_id: Number(categoryId),
         position: 9999,
         is_active: isActive,
+        seed_products: seedProducts,
       }),
     onSuccess: () => {
       invalidate();
+      qc.invalidateQueries({ queryKey: ["store-products"] });
       toast.success("Категория добавлена");
       setCategoryId("");
       setIsActive(true);
+      setSeedProducts(true);
       onClose();
     },
     onError: (e) => toast.error(extractError(e)),
@@ -741,6 +745,15 @@ function AddStoreCategoryModal({
             className="size-4"
           />
           <span className="text-sm">Активна</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={seedProducts}
+            onChange={(e) => setSeedProducts(e.target.checked)}
+            className="size-4"
+          />
+          <span className="text-sm">Автоматически добавить товары из этой категории</span>
         </label>
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-secondary" onClick={onClose}>

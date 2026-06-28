@@ -1,19 +1,38 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Package, Plus, Search, Trash2 } from "lucide-react";
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { extractError } from "@/api/client";
 import {
   createStoreProduct,
   deleteStoreProduct,
+  listCategories,
   listProducts,
   listStoreCategories,
   listStoreProducts,
   listStores,
   updateStoreProduct,
 } from "@/api/endpoints";
-import type { Product, StoreProduct } from "@/api/types";
+import type { Category, Product, StoreCategory, StoreProduct } from "@/api/types";
+
+function filterLeafStoreCategories(
+  storeItems: StoreCategory[],
+  allCategories: Category[]
+): StoreCategory[] {
+  const storeCatIds = new Set(storeItems.map((sc) => sc.category_id));
+  const parentIds = new Set<number>();
+  for (const cat of allCategories) {
+    if (
+      cat.parent_id !== null &&
+      storeCatIds.has(cat.parent_id) &&
+      storeCatIds.has(cat.id)
+    ) {
+      parentIds.add(cat.parent_id);
+    }
+  }
+  return storeItems.filter((sc) => !parentIds.has(sc.category_id));
+}
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -99,25 +118,33 @@ export default function StoreProductsPage() {
   }, [deferredSearch, categoryId, availability]);
 
   const storeCategoriesQ = useQuery({
-    queryKey: ["store-categories-filter", effectiveStoreId, "leaf"],
+    queryKey: ["store-categories-filter", effectiveStoreId],
     queryFn: () =>
-      listStoreCategories({
-        store_id: effectiveStoreId!,
-        limit: 500,
-        offset: 0,
-        leaf_only: true,
-      }),
+      listStoreCategories({ store_id: effectiveStoreId!, limit: 500, offset: 0 }),
     enabled: !!effectiveStoreId,
   });
+
+  const allCategoriesQ = useQuery({
+    queryKey: ["categories-all"],
+    queryFn: () => listCategories({}),
+    enabled: !!effectiveStoreId,
+  });
+
+  const leafStoreCategories = useMemo(
+    () =>
+      filterLeafStoreCategories(
+        storeCategoriesQ.data?.items ?? [],
+        allCategoriesQ.data ?? []
+      ),
+    [storeCategoriesQ.data?.items, allCategoriesQ.data]
+  );
 
   useEffect(() => {
     if (categoryId === "") return;
     if (storeCategoriesQ.isLoading) return;
-    const items = storeCategoriesQ.data?.items ?? [];
-    if (items.length === 0) return;
-    const allowed = new Set(items.map((sc) => sc.category_id));
+    const allowed = new Set(leafStoreCategories.map((sc) => sc.category_id));
     if (!allowed.has(categoryId)) setCategoryId("");
-  }, [categoryId, storeCategoriesQ.data?.items, storeCategoriesQ.isLoading]);
+  }, [categoryId, leafStoreCategories, storeCategoriesQ.isLoading]);
 
   const query = useQuery({
     queryKey: [
@@ -223,7 +250,7 @@ export default function StoreProductsPage() {
             }}
           >
             <option value="">Все категории</option>
-            {(storeCategoriesQ.data?.items ?? []).map((sc) => (
+            {leafStoreCategories.map((sc) => (
               <option key={sc.category_id} value={sc.category_id}>
                 {sc.category_name ?? `Категория #${sc.category_id}`}
               </option>
@@ -436,17 +463,26 @@ function AddStoreProductModal({
   const blurCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const storeLeafCategoriesQ = useQuery({
-    queryKey: ["store-categories-filter", storeId, "leaf", "active"],
+    queryKey: ["store-categories-filter", storeId],
     queryFn: () =>
-      listStoreCategories({
-        store_id: storeId,
-        limit: 500,
-        offset: 0,
-        leaf_only: true,
-        is_active: true,
-      }),
+      listStoreCategories({ store_id: storeId, limit: 500, offset: 0 }),
     enabled: open && !!storeId,
   });
+
+  const allCategoriesForModalQ = useQuery({
+    queryKey: ["categories-all"],
+    queryFn: () => listCategories({}),
+    enabled: open && !!storeId,
+  });
+
+  const activeLeafCategories = useMemo(
+    () =>
+      filterLeafStoreCategories(
+        (storeLeafCategoriesQ.data?.items ?? []).filter((sc) => sc.is_active),
+        allCategoriesForModalQ.data ?? []
+      ),
+    [storeLeafCategoriesQ.data?.items, allCategoriesForModalQ.data]
+  );
 
   const [categoryId, setCategoryId] = useState("");
   const [nameInput, setNameInput] = useState("");
@@ -580,16 +616,15 @@ function AddStoreProductModal({
             }}
           >
             <option value="">— выберите —</option>
-            {(storeLeafCategoriesQ.data?.items ?? []).map((sc) => (
+            {activeLeafCategories.map((sc) => (
               <option key={sc.category_id} value={sc.category_id}>
                 {sc.category_name ?? `Категория #${sc.category_id}`}
               </option>
             ))}
           </select>
-          {storeLeafCategoriesQ.isSuccess &&
-          (storeLeafCategoriesQ.data?.items?.length ?? 0) === 0 ? (
+          {storeLeafCategoriesQ.isSuccess && activeLeafCategories.length === 0 ? (
             <p className="text-sm text-amber-700 mt-1">
-              Нет активных «листовых» категорий. Включите категорию на витрине или
+              Нет активных листовых категорий. Включите категорию на витрине или
               добавьте подкатегорию без дочерних в справочнике.
             </p>
           ) : null}
@@ -787,14 +822,15 @@ function EditStoreProductModal({
 }) {
   const qc = useQueryClient();
   const storeLeafCategoriesQ = useQuery({
-    queryKey: ["store-categories-filter", item.store_id, "leaf"],
+    queryKey: ["store-categories-filter", item.store_id],
     queryFn: () =>
-      listStoreCategories({
-        store_id: item.store_id,
-        limit: 500,
-        offset: 0,
-        leaf_only: true,
-      }),
+      listStoreCategories({ store_id: item.store_id, limit: 500, offset: 0 }),
+    enabled: open,
+  });
+
+  const allCategoriesEditQ = useQuery({
+    queryKey: ["categories-all"],
+    queryFn: () => listCategories({}),
     enabled: open,
   });
 
@@ -802,7 +838,14 @@ function EditStoreProductModal({
   const [categoryId, setCategoryId] = useState(String(item.category_id));
   const [available, setAvailable] = useState(item.is_available);
 
-  const leafItems = storeLeafCategoriesQ.data?.items ?? [];
+  const leafItems = useMemo(
+    () =>
+      filterLeafStoreCategories(
+        storeLeafCategoriesQ.data?.items ?? [],
+        allCategoriesEditQ.data ?? []
+      ),
+    [storeLeafCategoriesQ.data?.items, allCategoriesEditQ.data]
+  );
   const currentInLeafList = leafItems.some(
     (sc) => sc.category_id === item.category_id
   );

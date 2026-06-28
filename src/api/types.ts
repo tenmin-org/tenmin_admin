@@ -119,6 +119,7 @@ export interface StoreCategoryCreate {
   category_id: number;
   is_active: boolean;
   position: number;
+  seed_products?: boolean;
 }
 
 export interface StoreCategoryUpdate {
